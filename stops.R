@@ -51,7 +51,7 @@ stop_data <- stop_data %>%
                                                           ifelse(race == 'Asian', 'Asian', NA))))))) 
 
 #### Plot fraction of population vs fraction of stops ####
-inner_join(
+p1 <- inner_join(
 stop_data %>% group_by(race_bridge) %>%
   filter(!is.na(race_bridge)) %>%
   filter(race_bridge != 'Other/Unknown') %>%
@@ -72,13 +72,11 @@ populations, by = c('race_bridge' = 'race')) %>%
   labs(y = 'Fraction of total',
        x = element_blank(),
        fill = element_blank(),
-       title = 'Minneapolis population and MPD vehicular stops by race',
-       subtitle = ('2016-10-31 to ????'),
-       caption = 'source: opendataminneapolis Police Stop Data')
-  
+       title = 'Share of Minneapolis population and MPD stops by race',
+       caption = 'source: opendataminneapolis Police Stop Data, 10/31/2016 - 6/15/2020')
 
 #### Plot rates of searches for each race ####
-stop_data %>% group_by(race_bridge) %>% filter(!is.na(race_bridge)) %>%
+p2<-stop_data %>% group_by(race_bridge) %>% filter(!is.na(race_bridge)) %>%
   filter(race_bridge != 'Other/Unknown') %>%
   summarize(count = n(),
             person_search = sum(personSearch, na.rm = TRUE),
@@ -103,116 +101,53 @@ stop_data %>% group_by(race_bridge) %>% filter(!is.na(race_bridge)) %>%
        x = element_blank(),
        fill = element_blank(),
        title = 'Fraction of MPD vehiclular stops leading to searches',
-       subtitle = ('2016-10-31 to ????'),
-       caption = 'source: opendataminneapolis Police Stop Data') +
-  scale_fill_discrete(labels = c('Person search', 'Vehicle Search'))
+       caption = 'source: opendataminneapolis Police Stop Data 10/31/2016 - 6/15/2020') +
+  scale_fill_discrete(labels = c('Person search', 'Vehicle search'))
 
 
-
-
-#### Plot rates of searches for each race ####
-stop_data %>% group_by(race_bridge, policePrecinct) %>% filter(!is.na(race_bridge)) %>%
-  filter(race_bridge != 'Other/Unknown', !is.na(policePrecinct)) %>%
+#### Plot rates of searches for each race facet by police precinct ####
+stop_data <- stop_data %>% filter(!is.na(policePrecinct))
+stop_data$policePrecinct <- droplevels(stop_data$policePrecinct)
+stop_data$policePrecinct <- fct_explicit_na(stop_data$policePrecinct)
+stop_data$policePrecinct <- factor(stop_data$policePrecinct,
+                                   levels = c('1', '2', '3', '4', '5'),
+                                   labels = c('Precinct 1', 'Precinct 2', 'Precinct 3', 'Precinct 4', 'Precinct 5'))
+p3 <- stop_data %>% filter(!is.na(race_bridge)) %>%
+  filter(race_bridge != 'Other/Unknown') %>%
+  filter(policePrecinct != '(Missing)') %>%
+  group_by(race_bridge, policePrecinct) %>%
   summarize(count = n(),
             person_search = sum(personSearch, na.rm = TRUE),
-            vehicle_search = sum(vehicleSearch, na.rm = TRUE))%>%
+            vehicle_search = sum(vehicleSearch, na.rm = TRUE)) %>%
   mutate(person_search_rate = person_search/count,
          vehicle_search_rate = vehicle_search/count) %>%
   select(-person_search, -vehicle_search) %>%
-  gather(category, rate, person_search_rate:vehicle_search_rate) %>%
-  ggplot(aes(x = reorder(race_bridge,-rate), y = rate, fill = category)) +
+  gather(category, rate, person_search_rate, vehicle_search_rate) %>%
+  ggplot(aes(x = reorder(race_bridge, -rate), y = rate, fill = category)) +
   geom_col(position = position_dodge()) +
-  geom_text(aes(label = round(rate,2), y = rate/2),
-            position = position_dodge(width = 1), fontface = 'bold', size = 3) +
-  facet_grid(.~precinct)+
+  facet_grid(.~policePrecinct)+
+  scale_y_continuous(expand = c(0,0),
+                     limits = c(0,.43)) +
   theme_classic()+
   theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1),
-        legend.position = c(.8,.8),
         plot.caption = element_text(face = 'italic'))+
   labs(y = 'Search rate when stopped',
        x = element_blank(),
        fill = element_blank(),
-       title = 'Fraction of MPD vehiclular stops leading to searches',
-       subtitle = ('2016-10-31 to ????'),
-       caption = 'source: opendataminneapolis Police Stop Data') +
-  scale_fill_discrete(labels = c('Person search', 'Vehicle Search'))
+       title = 'Fraction of MPD stops leading to searches',
+       caption = 'source: opendataminneapolis Police Stop Data 10/31/2016 - 6/15/2020') +
+  scale_fill_discrete(labels = c('Person search', 'Vehicle search'))
 
+#### Export Plots ####
+png("outputs/p1.png", units="in", width=6, height=4, res=300)
+p1
+dev.off()
 
+png("outputs/p2.png", units="in", width=6, height=4, res=300)
+p2
+dev.off()
 
+png('outputs/p3.png', units = 'in', width = 8, height = 4, res = 300)
+p3
+dev.off()
 
-
-
-
-
-
-#### Plot of reason by race ####
-stop_data %>% group_by(reason, race_bridge) %>% 
-  filter(!is.na(reason)) %>%
-  filter(!is.na(race_bridge)) %>%
-  filter(race_bridge != 'Other/Unknown') %>%
-  summarize(count = n()) %>%
-  ungroup() %>%
-  group_by(reason) %>%
-  mutate(frc_of_stops = count/sum(count)) %>%
-  ggplot(aes(x = reason, y = frc_of_stops, fill = race_bridge)) +
-  geom_col()
-
-#### Plot race by reason ####
-stop_data %>% group_by(race_bridge, reason) %>% 
-  filter(!is.na(reason)) %>%
-  filter(!is.na(race_bridge)) %>%
-  filter(race_bridge != 'Other/Unknown') %>%
-  summarize(count = n()) %>%
-  ungroup() %>%
-  group_by(race_bridge) %>%
-  mutate(frc_of_stops = count/sum(count)) %>%
-  ggplot(aes(x = race_bridge, y = frc_of_stops, fill = reason)) +
-  geom_col()
-
-
-#### Plot of problem by race ####
-stop_data %>% group_by(problem, race_bridge) %>% 
-  filter(!is.na(problem)) %>%
-  filter(!is.na(race_bridge)) %>%
-  filter(race_bridge != 'Other/Unknown') %>%
-  summarize(count = n()) %>%
-  ungroup() %>%
-  group_by(problem) %>%
-  mutate(frc_of_stops = count/sum(count)) %>%
-  ggplot(aes(x = problem, y = frc_of_stops, fill = race_bridge)) +
-  geom_col()
-
-#### Plot race by problem ####
-stop_data %>% group_by(race_bridge, problem) %>% 
-  filter(!is.na(problem)) %>%
-  filter(!is.na(race_bridge)) %>%
-  filter(race_bridge != 'Other/Unknown') %>%
-  summarize(count = n()) %>%
-  ungroup() %>%
-  group_by(race_bridge) %>%
-  mutate(frc_of_stops = count/sum(count)) %>%
-  ggplot(aes(x = race_bridge, y = frc_of_stops, fill = problem)) +
-  geom_col()
-
-
-
-
-
-
-
-
-stop_data$race[stop_data$race == 'East African'] <- 'Black'
-
-stop_data %>% group_by(race) %>% filter(race != '(Missing)') %>%
-  summarize(count = n(),
-            person_search = sum(personSearch, na.rm = TRUE),
-            vehicle_search = sum(vehicleSearch, na.rm = TRUE),
-            citation_issue = sum(citationIssued, na.rm = TRUE)) %>%
-  mutate(person_search_rate = person_search/count,
-         vehicle_search_rate = vehicle_search/count,
-         citation_rate = citation_issue/count) %>%
-  select(-person_search, -vehicle_search, -citation_issue) %>%
-  gather(category, rate, person_search_rate:citation_rate) %>%
-  ggplot(aes(x = reorder(race,-rate), y = rate, fill = category)) +
-  geom_col(position = position_dodge()) +
-  theme(axis.text.x = element_text(angle = 90))
