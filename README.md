@@ -4,7 +4,7 @@ Minneapolis Police Department stops and searches
 
 ## Getting Started
 
-Simply run the .R file with the data file in the same directory as the .R file
+Simply run the .R file with the data file in the same directory as the .R file. Data can be obtained from http://opendata.minneapolismn.gov/datasets/police-stop-data/data as a .csv file
 
 ### Prerequisites
 
